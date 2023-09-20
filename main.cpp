@@ -15,8 +15,8 @@ int testFibersCombination();
 int testSimpleModel();
 
 int main(){
-    testFibersCombination();
-//    testSimpleModel();
+//    testFibersCombination();
+    testSimpleModel();
 }
 
 int testFibersCombination()
