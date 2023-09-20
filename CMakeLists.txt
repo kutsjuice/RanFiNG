@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(hello_cmake_3 LANGUAGES CXX)
+project(ranfing LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,14 +29,14 @@ set(SOURCES main.cpp
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${EIGEN3_INCLUDE_DIR})
 
-add_executable(hello_cmake_3 ${SOURCES})
+add_executable(ranfing ${SOURCES})
 
 # linking gmsh library
 target_link_libraries(${PROJECT_NAME} gmsh
                                         )
 
 include(GNUInstallDirs)
-install(TARGETS hello_cmake_3
+install(TARGETS ranfing
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
