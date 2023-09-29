@@ -41,6 +41,8 @@ private:
     std::vector<std::shared_ptr<Fiber>> m_fibers;
 
     std::vector<double> m_size;
+
+    unsigned int m_fiber_index{1};
 };
 
 #endif // MODEL_H

@@ -29,7 +29,7 @@ int testFibersCombination()
 
     gmsh::model::add("model");
     gmsh::logger::start();
-
+    gmsh::option::setNumber("Mesh.MeshSizeMax", 0.035);
     // We first create two fiber:
 
 
@@ -38,7 +38,7 @@ int testFibersCombination()
     {
         fib_param_1.diameter = 0.1;
         fib_param_1.center = {0.0, 0.0, 0.0};
-        fib_param_1.length = 3.5;
+        fib_param_1.length = 0.5;
         fib_param_1.phi = 0.0;
         fib_param_1.theta = 0.0;
     }
@@ -115,7 +115,7 @@ int testSimpleModel()
     gmsh::model::add("model");
     gmsh::option::setNumber("General.Verbosity", 2);
 //    gmsh::option::setNumber("")
-    gmsh::option::setNumber("Mesh.MeshSizeMax", 0.7);
+    gmsh::option::setNumber("Mesh.MeshSizeMax", 0.1);
     gmsh::logger::start();
 
     model->createGeometry();

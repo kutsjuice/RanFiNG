@@ -39,8 +39,8 @@ Model::Model(std::vector<double> _size): m_size{_size}
 
 std::shared_ptr<Fiber> Model::addFiber(FiberParam _params)
 {
-    m_fibers.push_back(std::make_shared<Fiber>(_params));
-
+    m_fibers.push_back(std::make_shared<Fiber>(_params, m_fiber_index));
+    m_fiber_index += 5;
     return m_fibers.back();
 }
 
@@ -126,7 +126,7 @@ COMBINATION_RESULT Model::combine(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fibe
 }
 
 GENERATION_RESULT Model::createGeometry(){
-    double diam{0.5};
+    double diam{1.5};
     double length{4.5};
     int fiber_number{30};
 
@@ -136,7 +136,7 @@ GENERATION_RESULT Model::createGeometry(){
     std::uniform_real_distribution<> X(-m_size[0]/2, m_size[0]/2);
     std::uniform_real_distribution<> Y(-m_size[1]/2, m_size[1]/2);
     std::uniform_real_distribution<> Z(-m_size[2]/2, m_size[2]/2);
-    std::uniform_real_distribution<> THETA(-M_PI/10, M_PI/10);
+    std::uniform_real_distribution<> THETA(-M_PI/3, M_PI/3);
 
 
     FiberParam fib_param;
