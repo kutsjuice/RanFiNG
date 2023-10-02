@@ -39,8 +39,8 @@ Model::Model(std::vector<double> _size): m_size{_size}
 
 std::shared_ptr<Fiber> Model::addFiber(FiberParam _params)
 {
-    m_fibers.push_back(std::make_shared<Fiber>(_params, m_fiber_index));
-    m_fiber_index += 5;
+    m_fibers.push_back(std::make_shared<Fiber>(_params, m_body_index));
+    m_body_index += 5;
     return m_fibers.back();
 }
 
@@ -65,26 +65,47 @@ double Model::calcDistance(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib
 {
     auto fibA = _fib1.lock();
     auto fibB = _fib2.lock();
-    auto n = fibA->getDirVec().cross(fibB->getDirVec());
+    // check parallel
 
-    auto d = abs(n.dot(fibA->getSPoint() - fibB->getSPoint())) / n.norm();
-    auto tA = fibA->getDirVec().cross(n).dot(fibB->getSPoint() - fibA->getSPoint()) / n.dot(n);
-    auto tB = fibB->getDirVec().cross(n).dot(fibB->getSPoint() - fibA->getSPoint()) / n.dot(n);
+    double eps = 0.001;
+    double dist;
 
-    if(_inbounds && ( (tA < 0.0) || (tA > 1.0) || (tB < 0.0) || (tB > 1.0) ) ){
-        d = std::numeric_limits<double>::infinity();
+    if(fibA->getDirVec().dot(fibB->getDirVect())/fibA->getDirVec().norm()/fibB.getDirVec().norm() < eps){
+        // parellel
+        auto AC = fibB->getSPoint() - fibA->getSPoint();
+        auto prAC = AC.dot(fibA->getSPoint())/fibA->getSPoint().norm();
+        auto orth = (AC - prAC);
+        dist = orth.norm();
+        //TODO check bounds
 
-        auto d1 = distancePoint2Line(fibA->getSPoint(), fibB->getSPoint(), fibB->getDirVec(), true);
-        if(d1 < d) d = d1;
-        d1 = distancePoint2Line(fibA->getEPoint(), fibB->getSPoint(), fibB->getDirVec(), true);
-        if(d1 < d) d = d1;
-        d1 = distancePoint2Line(fibB->getSPoint(), fibA->getSPoint(), fibA->getDirVec(), true);
-        if(d1 < d) d = d1;
-        d1 = distancePoint2Line(fibB->getEPoint(), fibA->getSPoint(), fibA->getDirVec(), true);
-        if(d1 < d) d = d1;
+    } else{
+        //not parallel
+
+        auto n = fibA->getDirVec().cross(fibB->getDirVec());
+
+        dist = abs(n.dot(fibA->getSPoint() - fibB->getSPoint())) / n.norm();
+        auto tA = fibA->getDirVec().cross(n).dot(fibB->getSPoint() - fibA->getSPoint()) / n.dot(n);
+        auto tB = fibB->getDirVec().cross(n).dot(fibB->getSPoint() - fibA->getSPoint()) / n.dot(n);
+
+        //bounds check
+        if(_inbounds && ( (tA < 0.0) || (tA > 1.0) || (tB < 0.0) || (tB > 1.0) ) ){
+            dist = std::numeric_limits<double>::infinity();
+
+            auto d1 = distancePoint2Line(fibA->getSPoint(), fibB->getSPoint(), fibB->getDirVec(), true);
+            if(d1 < dist) dist = d1;
+            d1 = distancePoint2Line(fibA->getEPoint(), fibB->getSPoint(), fibB->getDirVec(), true);
+            if(d1 < dist) dist = d1;
+            d1 = distancePoint2Line(fibB->getSPoint(), fibA->getSPoint(), fibA->getDirVec(), true);
+            if(d1 < dist) dist = d1;
+            d1 = distancePoint2Line(fibB->getEPoint(), fibA->getSPoint(), fibA->getDirVec(), true);
+            if(d1 < dist) dist = d1;
+        }
     }
 
-    return d;
+
+
+
+    return dist;
 
 }
 
@@ -109,10 +130,11 @@ COMBINATION_RESULT Model::combine(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fibe
 
         std::vector<std::pair<int, int> > ov;
         std::vector<std::vector<std::pair<int, int> > > ovv;
-        gmsh::model::occ::fuse({{3, fibA->getBodyInd()}}, {{3, fibB->getBodyInd()}}, ov, ovv);
+        m_body_index +=5;
+        gmsh::model::occ::fuse({{3, fibA->getBodyInd()}}, {{3, fibB->getBodyInd()}}, ov, ovv, m_body_index, true, true);
 
-        fibA->setBodyInd(ov[0].second);
-        fibB->setBodyInd(ov[0].second);
+        fibA->setBodyInd(m_body_index);
+        fibB->setBodyInd(m_body_index);
 
 
         return COMBINATION_RESULT::SUCCESS;

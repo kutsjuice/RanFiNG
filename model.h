@@ -42,7 +42,7 @@ private:
 
     std::vector<double> m_size;
 
-    unsigned int m_fiber_index{1};
+    unsigned int m_body_index{1};
 };
 
 #endif // MODEL_H
