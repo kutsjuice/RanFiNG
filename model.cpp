@@ -92,9 +92,18 @@ double Model::calcDistance(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib
     // check parallel
 
     double eps = 0.001;
-    double dist;
+    double dist;    
 
-    if(fibA->getDirVec().dot(fibB->getDirVec())/fibA->getDirVec().norm()/fibB->getDirVec().norm() < eps){
+    Vector3d AB = fibA->getDirVec();
+    Vector3d CD = fibB->getDirVec();
+    Vector3d AC = fibB->getSPoint() - fibA->getSPoint();
+    Vector3d CB = fibA->getEPoint() - fibB->getEPoint();
+    Vector3d AD = fibB->getEPoint() - fibA->getSPoint();
+    Vector3d DB = fibA->getEPoint() - fibB->getEPoint();
+
+    Vector3d n = AB.cross(CD);
+    bool cover = false;
+    if(n.norm() < eps){
         // case of parellel fibers
         //
         //                     * D
@@ -112,26 +121,20 @@ double Model::calcDistance(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib
         // 3. Lenth of Ort(AC)_AB equal to distnace between AB and CD
         // 4. The shortest distance will eqal to Ort(AC)_AB these vectors cover each other at list partially. For that At least one projection of a first vector's point  should lay on second fibers
 
-        auto AC = fibB->getSPoint() - fibA->getSPoint();
-        auto CB = fibA->getEPoint() - fibB->getEPoint();
-        auto AD = fibB->getEPoint() - fibA->getSPoint();
-        auto DB = fibA->getEPoint() - fibB->getEPoint();
 
-        auto proj = AC.dot(fibA->getDirVec())/fibA->getDirVec().squaredNorm() * fibA->getDirVec();
-        auto orth = (AC - proj);
+        Vector3d proj = AC.dot(AB)/AB.squaredNorm() * AB;
+        Vector3d orth = (AC - proj);
         dist = orth.norm();
         //TODO check bounds
-        double t = proj.norm()/fibA->getDirVec().norm();
-        bool cover = false;
+        double t = AC.dot(AB)/AB.squaredNorm();
+
         if ((t < 0) || (t > 1)){
 
-            proj = AD.dot(fibA->getDirVec())/(fibA->getDirVec().squaredNorm()) * fibA->getDirVec();
-            t = proj.norm()/fibA->getDirVec().norm();
+            t = AD.dot(AB)/AB.squaredNorm();
 
             if ((t < 0) || (t > 1)){
 
-                proj = CB.dot(fibA->getEPoint())/(fibB->getDirVec().squaredNorm()) * fibB->getDirVec();
-                t = proj.norm()/fibB->getDirVec().norm();
+                t = CB.dot(CD)/CD.squaredNorm();
                 if ((t >= 0) && (t <= 1)){
                     cover = true;
                 }
@@ -142,42 +145,33 @@ double Model::calcDistance(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib
             cover = true;
         }
         // case, when fibers do not intersect each other
-        if (!cover && _inbounds){
-            // calc 4 distances (AC, AD, CB, DB)
-            // shortest distance will be the lowest value
-            Vector<double, 4> distances {
-                AC.norm(),
-                CB.norm(),
-                AD.norm(),
-                DB.norm(),
-            };
-            dist = distances.minCoeff();
-        }
+
 
     } else{
         //not parallel
-
-        auto n = fibA->getDirVec().cross(fibB->getDirVec());
-
-        dist = abs(n.dot(fibA->getSPoint() - fibB->getSPoint())) / n.norm();
-        auto tA = fibA->getDirVec().cross(n).dot(fibB->getSPoint() - fibA->getSPoint()) / n.dot(n);
-        auto tB = fibB->getDirVec().cross(n).dot(fibB->getSPoint() - fibA->getSPoint()) / n.dot(n);
+//        n = n / n.norm();
+        dist = abs(n.dot(AC)) / n.norm();
+        Vector3d d2 = CD.cross(n);
+        Vector3d d1 = AB.cross(n);
+        auto t1 = AC.dot(d2) / AB.dot(d2);
+        auto t2 = - AC.dot(d1) / CD.dot(d1);
 
         //bounds check
-        if(_inbounds && ( (tA < 0.0) || (tA > 1.0) || (tB < 0.0) || (tB > 1.0) ) ){
-            dist = std::numeric_limits<double>::infinity();
-
-            auto d1 = distancePoint2Line(fibA->getSPoint(), fibB->getSPoint(), fibB->getDirVec(), true);
-            if(d1 < dist) dist = d1;
-            d1 = distancePoint2Line(fibA->getEPoint(), fibB->getSPoint(), fibB->getDirVec(), true);
-            if(d1 < dist) dist = d1;
-            d1 = distancePoint2Line(fibB->getSPoint(), fibA->getSPoint(), fibA->getDirVec(), true);
-            if(d1 < dist) dist = d1;
-            d1 = distancePoint2Line(fibB->getEPoint(), fibA->getSPoint(), fibA->getDirVec(), true);
-            if(d1 < dist) dist = d1;
+        if((t1 >= 0.0) && (t1 <= 1.0) && (t2 >= 0.0) && (t2 <= 1.0)){
+            cover = true;
         }
     }
-
+    if (!cover && _inbounds){
+        // calc 4 distances (AC, AD, CB, DB)
+        // shortest distance will be the lowest value
+        Vector<double, 4> distances {
+            AC.norm(),
+            CB.norm(),
+            AD.norm(),
+            DB.norm(),
+        };
+        dist = distances.minCoeff();
+    }
     return dist;
 
 }
