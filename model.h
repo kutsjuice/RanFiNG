@@ -3,9 +3,10 @@
 
 #include <memory>
 #include <vector>
-
+#include <unordered_set>
 #include "fiber.h"
 #include "body.h"
+//#define uint
 
 enum class COMBINATION_RESULT
 {
@@ -26,23 +27,26 @@ class Model
 public:
     Model(std::vector<double> _size);
 
-    std::shared_ptr<Fiber> addFiber(FiberParam);
+    int addFiber(FiberParam);
 
-    bool isOneBody(std::shared_ptr<Fiber> _fib1, std::shared_ptr<Fiber> _fib2) const;
+    bool isOneBody(int fib_1_ind, int fib_2_ind) const;
 
-    bool intersect(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib2) const;
+    bool intersect(int fib_1_ind, int fib_2_ind) const;
 
-    double calcDistance(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib2, bool _inbounds = true) const;
+    double calcDistance(int fib_1_ind, int fib_2_ind, bool _inbounds = true) const;
 
-    COMBINATION_RESULT combine(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib2, bool _check_intersection = false);
+    COMBINATION_RESULT combine(int fib_1_ind, int fib_2_ind, bool _check_intersection = false);
 
     GENERATION_RESULT createGeometry();
+
+    int getAvailableFiberIndex() const;
 private:
-    std::vector<std::shared_ptr<Fiber>> m_fibers;
-
+    std::unordered_map<int, Fiber> m_fibers;
+    std::unordered_set<int> m_bodies{};
     std::vector<double> m_size;
+    std::unordered_map<int, std::vector<int>> m_body_fibers;
 
-    unsigned int m_body_index{1};
+    mutable int m_fiber_index{1};
 };
 
 #endif // MODEL_H

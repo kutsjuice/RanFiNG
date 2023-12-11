@@ -12,6 +12,8 @@ set(GMSH_SDK_DIR "C:/gmsh-4.11.1-Windows64-sdk")
 
 # set paths to headers and libs
 include_directories(${GMSH_SDK_DIR}/include)
+# include_directories("C:/msys64/mingw64/include/eigen3/Eigen/")
+# include_directories("C:/msys64/mingw64/include/eigen3/")
 link_directories(${GMSH_SDK_DIR}/lib)
 
 set(HEADERS fiber.h

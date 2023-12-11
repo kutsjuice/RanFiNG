@@ -19,8 +19,8 @@ struct FiberParam
 class Fiber
 {
 public:
-    Fiber(double _diam, V3d _center, double _len, double _phi = 0.0, double _theta = 0.0, long int index = -1);
-    Fiber(FiberParam _p, long int _index = -1)
+    Fiber(double _diam, V3d _center, double _len, double _phi = 0.0, double _theta = 0.0, int index = -1);
+    Fiber(FiberParam _p, int _index = -1)
         : Fiber(_p.diameter,
                 _p.center,
                 _p.length,

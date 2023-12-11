@@ -45,11 +45,14 @@ Model::Model(std::vector<double> _size): m_size{_size}
 //! \param _params
 //! \return
 //!
-std::shared_ptr<Fiber> Model::addFiber(FiberParam _params)
+int Model::addFiber(FiberParam params_)
 {
-    m_fibers.push_back(std::make_shared<Fiber>(_params, m_body_index));
-    m_body_index += 5;
-    return m_fibers.back();
+    auto s_ind = getAvailableFiberIndex();
+    m_fibers.emplace(s_ind, Fiber(params_));
+
+    m_bodies.insert(m_fibers.at(s_ind).getBodyInd());
+    m_body_fibers[s_ind] = {s_ind};
+    return s_ind;
 }
 //!
 //! \brief Model::isOneBody
@@ -57,9 +60,9 @@ std::shared_ptr<Fiber> Model::addFiber(FiberParam _params)
 //! \param _fib2
 //! \return
 //!
-bool Model::isOneBody(std::shared_ptr<Fiber> _fib1, std::shared_ptr<Fiber> _fib2) const
+bool Model::isOneBody(int fib1, int fib2) const
 {
-    return _fib1->getBodyInd() == _fib2->getBodyInd();
+    return m_fibers.at(fib1).getBodyInd() == m_fibers.at(fib2).getBodyInd();
 }
 //!
 //! \brief Model::intersect
@@ -67,14 +70,14 @@ bool Model::isOneBody(std::shared_ptr<Fiber> _fib1, std::shared_ptr<Fiber> _fib2
 //! \param _fib2
 //! \return
 //!
-bool Model::intersect(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib2) const
+bool Model::intersect(int fib1, int fib2) const
 {
-    auto distance = calcDistance(_fib1, _fib2, true);
-    auto fibA = _fib1.lock();
-    auto fibB = _fib2.lock();
+    auto distance = calcDistance(fib1, fib2, true);
+    auto& fibA = m_fibers.at(fib1);
+    auto& fibB = m_fibers.at(fib2);
 
 
-    auto res = (distance <= (fibA->getDiam()/2 + fibB->getDiam()/2));
+    auto res = (distance <= (fibA.getDiam()/2 + fibB.getDiam()/2));
     return res;
 
 }
@@ -85,21 +88,21 @@ bool Model::intersect(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib2) co
 //! \param _inbounds
 //! \return
 //!
-double Model::calcDistance(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib2, bool _inbounds) const
+double Model::calcDistance(int fib1, int fib2, bool _inbounds) const
 {
-    auto fibA = _fib1.lock();
-    auto fibB = _fib2.lock();
+    auto& fibA = m_fibers.at(fib1);
+    auto& fibB = m_fibers.at(fib2);
     // check parallel
 
     double eps = 0.001;
     double dist;    
 
-    Vector3d AB = fibA->getDirVec();
-    Vector3d CD = fibB->getDirVec();
-    Vector3d AC = fibB->getSPoint() - fibA->getSPoint();
-    Vector3d CB = fibA->getEPoint() - fibB->getEPoint();
-    Vector3d AD = fibB->getEPoint() - fibA->getSPoint();
-    Vector3d DB = fibA->getEPoint() - fibB->getEPoint();
+    Vector3d AB = fibA.getDirVec();
+    Vector3d CD = fibB.getDirVec();
+    Vector3d AC = fibB.getSPoint() - fibA.getSPoint();
+    Vector3d CB = fibA.getEPoint() - fibB.getEPoint();
+    Vector3d AD = fibB.getEPoint() - fibA.getSPoint();
+    Vector3d DB = fibA.getEPoint() - fibB.getEPoint();
 
     Vector3d n = AB.cross(CD);
     bool cover = false;
@@ -183,35 +186,85 @@ double Model::calcDistance(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib
 //! \param _check_intersection
 //! \return
 //!
-COMBINATION_RESULT Model::combine(std::weak_ptr<Fiber> _fib1, std::weak_ptr<Fiber> _fib2, bool _check_intersection){
-    auto fibA = _fib1.lock();
-    auto fibB = _fib2.lock();
+COMBINATION_RESULT Model::combine(int fib1, int fib2, bool _check_intersection){
+    auto& fibA = m_fibers.at(fib1);
+    auto& fibB = m_fibers.at(fib2);
 
 
-    if(_check_intersection && !intersect(fibA, fibB)){
+    if(_check_intersection && !intersect(fib1, fib2)){
 //        std::cout << "Fibers (" << fibA->getBodyInd() << ";" << fibB->getBodyInd() << ") don't intersect!"<< std::endl;
 
         return COMBINATION_RESULT::FAILED_NOT_INTESECTED;
     }
 
-    if(fibA->getBodyInd() == fibB->getBodyInd()){
+    if(fibA.getBodyInd() == fibB.getBodyInd()){
         return COMBINATION_RESULT::FAILED_ALREADY_COMBINED;
     }
-    std::cout << "Fibers (" << fibA->getBodyInd() << ";" << fibB->getBodyInd() << ") Intersect!"<< std::endl;
+    std::cout << "Fibers (" << fib1 << ";" << fib2 << ") Intersect!"<< std::endl;
     try
     {
 
-        std::vector<std::pair<int, int> > ov;
+        std::vector<std::pair<int, int> > s_new_bodies;
         std::vector<std::vector<std::pair<int, int> > > ovv;
-        m_body_index +=5;
-        gmsh::model::occ::fuse({{3, fibA->getBodyInd()}}, {{3, fibB->getBodyInd()}}, ov, ovv, m_body_index, true, true);
+        gmsh::vectorpair s_3d_entities_before;
 
-        fibA->setBodyInd(m_body_index);
-        fibB->setBodyInd(m_body_index);
+        int fib_a_body_ind = fibA.getBodyInd();
+        int fib_b_body_ind = fibB.getBodyInd();
+
+        gmsh::model::occ::getEntities(s_3d_entities_before, 3);
+
+        int s_index = 0;
+        for (auto s_dimtag = s_3d_entities_before.begin(); s_dimtag != s_3d_entities_before.end(); s_dimtag++){
+            if (s_dimtag->second > s_index){
+                s_index = s_dimtag->second;
+            }
+        }
+        s_index++;
+
+        gmsh::model::occ::fuse({{3, fib_a_body_ind}}, {{3, fib_b_body_ind}}, s_new_bodies, ovv, s_index);
+
+
+        m_bodies.erase(fib_a_body_ind);
+        m_bodies.erase(fib_b_body_ind);
+        m_bodies.insert(s_index);
+
+        gmsh::vectorpair s_3d_entities_after;
+
+        gmsh::model::occ::getEntities(s_3d_entities_after, 3);
+
+        gmsh::vectorpair s_diff;
+
+        std::set_difference(s_3d_entities_after.begin(),
+                            s_3d_entities_after.end(),
+                            s_3d_entities_before.begin(),
+                            s_3d_entities_before.end(),
+                            std::inserter(s_diff, s_diff.begin()));
+
+
+        if (s_new_bodies.size() != 1 ){
+            std::cerr << "diff doesn't correspond to s_index" << std::endl;
+            return COMBINATION_RESULT::FAILED_UNKNOWN;
+        }
+
+        if (s_new_bodies.at(0).second != s_index){
+            std::cerr << "more than a single diff" << std::endl;
+            return COMBINATION_RESULT::FAILED_UNKNOWN;
+        }
+
+
+        m_body_fibers[s_index] = m_body_fibers.at(fib_a_body_ind);
+        m_body_fibers[s_index].insert(m_body_fibers[s_index].end(), m_body_fibers.at(fib_b_body_ind).begin(), m_body_fibers.at(fib_b_body_ind).end());
+
+        m_body_fibers.erase(fib_a_body_ind);
+        m_body_fibers.erase(fib_b_body_ind);
+
+        for (auto it = m_body_fibers[s_index].begin(); it != m_body_fibers[s_index].end(); it ++ ){
+            m_fibers.at(*it).setBodyInd(s_index);
+        }
+
 
 
         return COMBINATION_RESULT::SUCCESS;
-
     }
 
     catch(...){
@@ -230,11 +283,12 @@ GENERATION_RESULT Model::createGeometry(){
 
 
     std::random_device rd;  // Will be used to obtain a seed for the random number engine
-    std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+    std::mt19937 gen(100); // Standard mersenne_twister_engine seeded with rd()
     std::uniform_real_distribution<> X(-m_size[0]/2, m_size[0]/2);
     std::uniform_real_distribution<> Y(-m_size[1]/2, m_size[1]/2);
     std::uniform_real_distribution<> Z(-m_size[2]/2, m_size[2]/2);
     std::uniform_real_distribution<> THETA(-M_PI/3, M_PI/3);
+    std::normal_distribution<> PHI(0.0, M_PI/3);
 
 
     FiberParam fib_param;
@@ -245,7 +299,7 @@ GENERATION_RESULT Model::createGeometry(){
 
     for(int i = 0; i < fiber_number; i++){
 
-        fib_param.phi = 0.0;
+        fib_param.phi = PHI(gen);
         fib_param.theta = THETA(gen);
         fib_param.center = {X(gen), Y(gen), Z(gen)};
 
@@ -254,12 +308,37 @@ GENERATION_RESULT Model::createGeometry(){
 
     for(auto it1 = m_fibers.begin(); it1 != m_fibers.end(); it1++){
         for( auto it2 = std::next(it1); it2 != m_fibers.end(); it2++){
-            combine(*it1, *it2, true);
+            combine(it1->first, it2->first, true);
         }
     }
+
+    gmsh::vectorpair s_entities;
+    gmsh::model::occ::getEntities(s_entities, 3);
+
+
+    int s_box_ind{0};
+    for (auto it = s_entities.begin(); it != s_entities.end(); it++){
+        if (it->second > s_box_ind) s_box_ind = it->second;
+    }
+    s_box_ind++;
+    gmsh::vectorpair ov;
+    std::vector<gmsh::vectorpair> ovv;
+    gmsh::model::occ::addBox(-m_size[0]/2, -m_size[1]/2, -m_size[2]/2, m_size[0], m_size[1], m_size[2], s_box_ind);
+
+//    gmsh::model::occ::
+    gmsh::model::occ::intersect(s_entities, {{3, s_box_ind}},ov,ovv);
+    std::cout << "intersection performed" << std::endl;
 
     return GENERATION_RESULT::SUCCESS;
 
 
 
+}
+
+int Model::getAvailableFiberIndex() const
+{
+    while(m_fibers.find(m_fiber_index) != m_fibers.end()){
+        m_fiber_index++;
+    }
+    return m_fiber_index;
 }
